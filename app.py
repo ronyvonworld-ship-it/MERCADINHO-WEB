@@ -188,48 +188,57 @@ with aba_lancamentos:
         st.subheader("🛒 Lançar Venda")
         with st.form("form_venda", clear_on_submit=True):
             dt_venda = st.date_input("Data da Venda", datetime.now(), key="dt_venda")
-            val_venda = st.number_input("Valor Bruto (R$)", min_value=0.01, step=1.0, key="val_venda")
+            # Usa value=None para deixar o campo vazio e fácil de digitar sem apagar 0.00
+            val_venda = st.number_input("Valor Bruto (R$)", value=None, min_value=0.01, step=1.0, placeholder="Digite o valor...", key="val_venda")
             sub_venda = st.form_submit_button("Salvar Venda", type="primary")
             
             if sub_venda:
-                item = {
-                    "data": dt_venda.strftime("%d/%m/%Y"),
-                    "tipo": "VENDA",
-                    "produto": "Venda Avulsa",
-                    "valor_total": val_venda,
-                    "porcentagem": "-",
-                    "diferenca": "-"
-                }
-                salvar_transacao(item)
-                st.success("Venda registrada com sucesso!")
-                st.rerun()
+                if val_venda is not None and val_venda > 0:
+                    item = {
+                        "data": dt_venda.strftime("%d/%m/%Y"),
+                        "tipo": "VENDA",
+                        "produto": "Venda Avulsa",
+                        "valor_total": val_venda,
+                        "porcentagem": "-",
+                        "diferenca": "-"
+                    }
+                    salvar_transacao(item)
+                    st.success("Venda registrada com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Por favor, digite um valor válido para a venda.")
 
     with col2:
         st.subheader("📦 Lançar Compra")
         with st.form("form_compra", clear_on_submit=True):
             dt_compra = st.date_input("Data da Compra", datetime.now(), key="dt_compra")
-            val_compra = st.number_input("Valor Bruto (R$)", min_value=0.01, step=1.0, key="val_compra")
-            perc_compra = st.number_input("Porcentagem (%)", min_value=0.0, step=0.5, key="perc_compra")
+            # Usa value=None para deixar os campos limpos/vazios
+            val_compra = st.number_input("Valor Bruto (R$)", value=None, min_value=0.01, step=1.0, placeholder="Digite o valor...", key="val_compra")
+            perc_compra = st.number_input("Porcentagem (%)", value=None, min_value=0.0, step=0.5, placeholder="Digite a porcentagem...", key="perc_compra")
             sub_compra = st.form_submit_button("Salvar Compra", type="primary")
             
             if sub_compra:
-                if perc_compra > 0:
-                    dif = val_compra / perc_compra
-                    dif_str = f"{dif:.2f}"
+                if val_compra is not None and val_compra > 0:
+                    p_val = perc_compra if perc_compra is not None else 0.0
+                    if p_val > 0:
+                        dif = val_compra / p_val
+                        dif_str = f"{dif:.2f}"
+                    else:
+                        dif_str = "0.00"
+                    
+                    item = {
+                        "data": dt_compra.strftime("%d/%m/%Y"),
+                        "tipo": "COMPRA",
+                        "produto": "Compra Avulsa",
+                        "valor_total": val_compra,
+                        "porcentagem": f"{p_val:g}%",
+                        "diferenca": dif_str
+                    }
+                    salvar_transacao(item)
+                    st.success("Compra registrada com sucesso!")
+                    st.rerun()
                 else:
-                    dif_str = "0.00"
-                
-                item = {
-                    "data": dt_compra.strftime("%d/%m/%Y"),
-                    "tipo": "COMPRA",
-                    "produto": "Compra Avulsa",
-                    "valor_total": val_compra,
-                    "porcentagem": f"{perc_compra:g}%",
-                    "diferenca": dif_str
-                }
-                salvar_transacao(item)
-                st.success("Compra registrada com sucesso!")
-                st.rerun()
+                    st.error("Por favor, digite um valor válido para a compra.")
 
 # --- ABA 2: DESPESAS ---
 with aba_despesas:
@@ -242,16 +251,16 @@ with aba_despesas:
         with col_d2:
             desc_desp = st.text_input("Descrição da Despesa")
         with col_d3:
-            val_desp = st.number_input("Valor (R$)", min_value=0.01, step=1.0)
+            val_desp = st.number_input("Valor (R$)", value=None, min_value=0.01, step=1.0, placeholder="0.00")
             
         sub_desp = st.form_submit_button("➕ Cadastrar Despesa", type="primary")
         if sub_desp:
-            if desc_desp.strip():
+            if desc_desp.strip() and val_desp is not None:
                 salvar_despesa(dt_desp.strftime("%d/%m/%Y"), desc_desp, val_desp)
                 st.success("Despesa cadastrada!")
                 st.rerun()
             else:
-                st.error("Informe uma descrição.")
+                st.error("Informe uma descrição e um valor válido.")
 
     st.divider()
     
@@ -347,7 +356,6 @@ with aba_balanco:
         c2.metric("Total Compras", f"R$ {tot_compras:.2f}")
         c3.metric("Lucro Bruto", f"R$ {lucro:.2f}")
 
-        # Painel de Seleção para Editar ou Deletar Lançamento
         st.divider()
         st.subheader("🛠️ Editar ou Excluir Lançamento")
         
@@ -361,7 +369,6 @@ with aba_balanco:
         
         dados_hist_item = df_hist[df_hist['id'] == id_hist_sel].iloc[0]
         
-        # Converte string de data para objeto date do Streamlit
         try:
             dt_obj = datetime.strptime(dados_hist_item['data'], "%d/%m/%Y").date()
         except ValueError:
@@ -376,7 +383,6 @@ with aba_balanco:
             novo_val_h = st.number_input("Novo Valor (R$)", value=float(dados_hist_item['valor_total']), min_value=0.01, step=1.0, key=f"val_h_{id_hist_sel}")
             
         with col_h3:
-            # Tratamento de porcentagem caso seja compra
             is_compra = dados_hist_item['tipo'] == 'COMPRA'
             perc_atual_val = 0.0
             if is_compra:
@@ -423,18 +429,24 @@ with aba_estoque:
     
     col_e1, col_e2 = st.columns(2)
     with col_e1:
-        valor_alterar = st.number_input("Valor para Alterar (R$)", min_value=0.01, step=1.0)
+        valor_alterar = st.number_input("Valor para Alterar (R$)", value=None, min_value=0.01, step=1.0, placeholder="Digite o valor...")
     
     with col_e2:
         st.write("Ações:")
         if st.button("➕ Aumentar Saldo", type="primary"):
-            atualizar_saldo_estoque(saldo_atual + valor_alterar)
-            st.success("Saldo aumentado!")
-            st.rerun()
+            if valor_alterar is not None:
+                atualizar_saldo_estoque(saldo_atual + valor_alterar)
+                st.success("Saldo aumentado!")
+                st.rerun()
+            else:
+                st.error("Informe um valor.")
         if st.button("➖ Diminuir Saldo"):
-            atualizar_saldo_estoque(saldo_atual - valor_alterar)
-            st.success("Saldo diminuído!")
-            st.rerun()
+            if valor_alterar is not None:
+                atualizar_saldo_estoque(saldo_atual - valor_alterar)
+                st.success("Saldo diminuído!")
+                st.rerun()
+            else:
+                st.error("Informe um valor.")
 
 # --- ABA 5: RESUMO ANUAL / GRÁFICOS ---
 with aba_resumo:
