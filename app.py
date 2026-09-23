@@ -94,6 +94,17 @@ def salvar_despesa(data_str, desc, valor):
     conn.commit()
     conn.close()
 
+def atualizar_despesa(db_id, desc, valor):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE despesas
+        SET descricao = ?, valor = ?
+        WHERE id = ?
+    ''', (desc, valor, db_id))
+    conn.commit()
+    conn.close()
+
 def deletar_despesa(db_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -122,12 +133,10 @@ aba_lancamentos, aba_despesas, aba_balanco, aba_estoque, aba_resumo, aba_backup 
 with aba_lancamentos:
     hoje_str = datetime.now().strftime("%d/%m/%Y")
     
-    # Busca lançamentos do dia no banco de dados
     conn = sqlite3.connect(DB_PATH)
     df_hoje = pd.read_sql_query("SELECT tipo, valor_total, porcentagem, diferenca FROM historico WHERE data = ?", conn, params=(hoje_str,))
     conn.close()
 
-    # Cálculo dos indicadores do dia atual
     vendas_hoje = df_hoje[df_hoje["tipo"] == "VENDA"]["valor_total"].sum() if not df_hoje.empty else 0.0
     compras_hoje = df_hoje[df_hoje["tipo"] == "COMPRA"]["valor_total"].sum() if not df_hoje.empty else 0.0
     lucro_hoje = vendas_hoje - compras_hoje
@@ -137,7 +146,6 @@ with aba_lancamentos:
 
     if not df_hoje.empty:
         for _, row in df_hoje.iterrows():
-            # Converte porcentagem (ex: '10%') para float
             p_str = str(row["porcentagem"]).replace("%", "").strip()
             if p_str != "-":
                 try:
@@ -145,7 +153,6 @@ with aba_lancamentos:
                 except ValueError:
                     pass
 
-            # Converte diferença para float
             d_str = str(row["diferenca"]).strip()
             if d_str != "-":
                 try:
@@ -153,7 +160,6 @@ with aba_lancamentos:
                 except ValueError:
                     pass
 
-    # Exibição do Painel Resumo do Dia
     st.markdown(f"### 📅 Resumo do Dia de Hoje ({hoje_str})")
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("🛒 Vendas do Dia", f"R$ {vendas_hoje:.2f}")
@@ -218,6 +224,7 @@ with aba_lancamentos:
 with aba_despesas:
     st.header("Controlador de Despesas")
     
+    # Form de Cadastro
     with st.form("form_despesa", clear_on_submit=True):
         col_d1, col_d2, col_d3 = st.columns([1, 2, 1])
         with col_d1:
@@ -227,7 +234,7 @@ with aba_despesas:
         with col_d3:
             val_desp = st.number_input("Valor (R$)", min_value=0.01, step=1.0)
             
-        sub_desp = st.form_submit_button("➕ Cadastrar Despesa")
+        sub_desp = st.form_submit_button("➕ Cadastrar Despesa", type="primary")
         if sub_desp:
             if desc_desp.strip():
                 salvar_despesa(dt_desp.strftime("%d/%m/%Y"), desc_desp, val_desp)
@@ -237,23 +244,75 @@ with aba_despesas:
                 st.error("Informe uma descrição.")
 
     st.divider()
-    st.subheader("Histórico de Despesas")
+    
+    # Cabeçalho da Lista + Filtro
+    col_tulo, col_filtro = st.columns([2, 1])
+    with col_tulo:
+        st.subheader("Histórico de Despesas")
+    with col_filtro:
+        mostrar_tudo = st.checkbox("Mostrar Histórico Completo", value=False)
+
+    hoje_str_d = datetime.now().strftime("%d/%m/%Y")
     
     conn = sqlite3.connect(DB_PATH)
-    df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas ORDER BY id DESC", conn)
+    if mostrar_tudo:
+        df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas ORDER BY id DESC", conn)
+    else:
+        df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas WHERE data = ? ORDER BY id DESC", conn, params=(hoje_str_d,))
+    
+    # Busca todas as despesas para a caixa de seleção de Edição/Exclusão
+    df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor FROM despesas ORDER BY id DESC", conn)
     conn.close()
 
     if not df_desp.empty:
         st.dataframe(df_desp, use_container_width=True)
-        st.metric("Total em Despesas", f"R$ {df_desp['valor'].sum():.2f}")
-        
-        id_del = st.number_input("ID da Despesa para Excluir", min_value=1, step=1)
-        if st.button("🗑️ Excluir Despesa por ID"):
-            deletar_despesa(id_del)
-            st.success(f"Despesa #{id_del} excluída!")
-            st.rerun()
+        st.metric(
+            "Total Exibido", 
+            f"R$ {df_desp['valor'].sum():.2f}", 
+            delta="Apenas Hoje" if not mostrar_tudo else "Histórico Todo"
+        )
     else:
-        st.info("Nenhuma despesa cadastrada.")
+        if not mostrar_tudo:
+            st.info(f"Nenhuma despesa lançada para hoje ({hoje_str_d}). Marque 'Mostrar Histórico Completo' para ver despesas anteriores.")
+        else:
+            st.info("Nenhuma despesa cadastrada no sistema.")
+
+    # Painel de Edição e Exclusão de Despesa
+    if not df_todas_desp.empty:
+        st.divider()
+        st.subheader("🛠️ Editar ou Excluir Despesa")
+        
+        # Opções formatadas para o Selectbox
+        opcoes_despesa = {
+            f"ID #{row['id']} - {row['data']} | {row['descricao']} (R$ {row['valor']:.2f})": row['id']
+            for _, row in df_todas_desp.iterrows()
+        }
+        
+        item_selecionado = st.selectbox("Selecione uma despesa para alterar:", list(opcoes_despesa.keys()))
+        id_selecionado = opcoes_despesa[item_selecionado]
+        
+        # Dados da despesa selecionada
+        dados_item = df_todas_desp[df_todas_desp['id'] == id_selecionado].iloc[0]
+        
+        col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
+        with col_ed1:
+            novo_desc = st.text_input("Editar Descrição", value=dados_item['descricao'], key=f"desc_{id_selecionado}")
+        with col_ed2:
+            novo_valor = st.number_input("Editar Valor (R$)", value=float(dados_item['valor']), min_value=0.01, step=1.0, key=f"val_{id_selecionado}")
+        with col_ed3:
+            st.write("Ações:")
+            btn_salvar_edit = st.button("💾 Salvar Alteração", key=f"btn_edit_{id_selecionado}")
+            btn_deletar = st.button("🗑️ Deletar Despesa", type="primary", key=f"btn_del_{id_selecionado}")
+
+        if btn_salvar_edit:
+            atualizar_despesa(id_selecionado, novo_desc, novo_valor)
+            st.success(f"Despesa #{id_selecionado} atualizada com sucesso!")
+            st.rerun()
+
+        if btn_deletar:
+            deletar_despesa(id_selecionado)
+            st.success(f"Despesa #{id_selecionado} excluída com sucesso!")
+            st.rerun()
 
 # --- ABA 3: BALANÇO GERAL ---
 with aba_balanco:
