@@ -108,7 +108,7 @@ inicializar_banco_dados()
 st.title("🛒 Mercadinho de Betim")
 st.subheader("Sistema de Gestão Financeira")
 
-# Menu Principal em Abas (INCLUINDO ABA_BACKUP)
+# Menu Principal em Abas
 aba_lancamentos, aba_despesas, aba_balanco, aba_estoque, aba_resumo, aba_backup = st.tabs([
     "📦 Lançar Compra / Venda", 
     "💸 Despesas", 
@@ -120,6 +120,50 @@ aba_lancamentos, aba_despesas, aba_balanco, aba_estoque, aba_resumo, aba_backup 
 
 # --- ABA 1: LANÇAMENTOS (COMPRA / VENDA) ---
 with aba_lancamentos:
+    hoje_str = datetime.now().strftime("%d/%m/%Y")
+    
+    # Busca lançamentos do dia no banco de dados
+    conn = sqlite3.connect(DB_PATH)
+    df_hoje = pd.read_sql_query("SELECT tipo, valor_total, porcentagem, diferenca FROM historico WHERE data = ?", conn, params=(hoje_str,))
+    conn.close()
+
+    # Cálculo dos indicadores do dia atual
+    vendas_hoje = df_hoje[df_hoje["tipo"] == "VENDA"]["valor_total"].sum() if not df_hoje.empty else 0.0
+    compras_hoje = df_hoje[df_hoje["tipo"] == "COMPRA"]["valor_total"].sum() if not df_hoje.empty else 0.0
+    lucro_hoje = vendas_hoje - compras_hoje
+
+    soma_porcentagem_hoje = 0.0
+    soma_diferenca_hoje = 0.0
+
+    if not df_hoje.empty:
+        for _, row in df_hoje.iterrows():
+            # Converte porcentagem (ex: '10%') para float
+            p_str = str(row["porcentagem"]).replace("%", "").strip()
+            if p_str != "-":
+                try:
+                    soma_porcentagem_hoje += float(p_str)
+                except ValueError:
+                    pass
+
+            # Converte diferença para float
+            d_str = str(row["diferenca"]).strip()
+            if d_str != "-":
+                try:
+                    soma_diferenca_hoje += float(d_str)
+                except ValueError:
+                    pass
+
+    # Exibição do Painel Resumo do Dia
+    st.markdown(f"### 📅 Resumo do Dia de Hoje ({hoje_str})")
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("🛒 Vendas do Dia", f"R$ {vendas_hoje:.2f}")
+    m2.metric("📦 Compras do Dia", f"R$ {compras_hoje:.2f}")
+    m3.metric("💡 Lucro do Dia", f"R$ {lucro_hoje:.2f}")
+    m4.metric("📊 Soma Porcentagens", f"{soma_porcentagem_hoje:g}%")
+    m5.metric("⚖️ Soma Diferenças", f"R$ {soma_diferenca_hoje:.2f}")
+
+    st.divider()
+
     st.header("Novo Lançamento")
     col1, col2 = st.columns(2)
     
