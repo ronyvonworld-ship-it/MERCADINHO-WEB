@@ -76,6 +76,17 @@ def salvar_transacao(item):
     conn.commit()
     conn.close()
 
+def atualizar_transacao(db_id, data_str, valor_total, porcentagem_str, diferenca_str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE historico
+        SET data = ?, valor_total = ?, porcentagem = ?, diferenca = ?
+        WHERE id = ?
+    ''', (data_str, valor_total, porcentagem_str, diferenca_str, db_id))
+    conn.commit()
+    conn.close()
+
 def deletar_transacao(db_id):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -224,7 +235,6 @@ with aba_lancamentos:
 with aba_despesas:
     st.header("Controlador de Despesas")
     
-    # Form de Cadastro
     with st.form("form_despesa", clear_on_submit=True):
         col_d1, col_d2, col_d3 = st.columns([1, 2, 1])
         with col_d1:
@@ -245,7 +255,6 @@ with aba_despesas:
 
     st.divider()
     
-    # Cabeçalho da Lista + Filtro
     col_tulo, col_filtro = st.columns([2, 1])
     with col_tulo:
         st.subheader("Histórico de Despesas")
@@ -260,7 +269,6 @@ with aba_despesas:
     else:
         df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas WHERE data = ? ORDER BY id DESC", conn, params=(hoje_str_d,))
     
-    # Busca todas as despesas para a caixa de seleção de Edição/Exclusão
     df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor FROM despesas ORDER BY id DESC", conn)
     conn.close()
 
@@ -277,12 +285,10 @@ with aba_despesas:
         else:
             st.info("Nenhuma despesa cadastrada no sistema.")
 
-    # Painel de Edição e Exclusão de Despesa
     if not df_todas_desp.empty:
         st.divider()
         st.subheader("🛠️ Editar ou Excluir Despesa")
         
-        # Opções formatadas para o Selectbox
         opcoes_despesa = {
             f"ID #{row['id']} - {row['data']} | {row['descricao']} (R$ {row['valor']:.2f})": row['id']
             for _, row in df_todas_desp.iterrows()
@@ -291,7 +297,6 @@ with aba_despesas:
         item_selecionado = st.selectbox("Selecione uma despesa para alterar:", list(opcoes_despesa.keys()))
         id_selecionado = opcoes_despesa[item_selecionado]
         
-        # Dados da despesa selecionada
         dados_item = df_todas_desp[df_todas_desp['id'] == id_selecionado].iloc[0]
         
         col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
@@ -342,11 +347,70 @@ with aba_balanco:
         c2.metric("Total Compras", f"R$ {tot_compras:.2f}")
         c3.metric("Lucro Bruto", f"R$ {lucro:.2f}")
 
-        id_hist_del = st.number_input("ID do Lançamento para Excluir", min_value=1, step=1, key="del_hist")
-        if st.button("🗑️ Excluir Lançamento por ID"):
-            deletar_transacao(id_hist_del)
-            st.success(f"Lançamento #{id_hist_del} excluído!")
+        # Painel de Seleção para Editar ou Deletar Lançamento
+        st.divider()
+        st.subheader("🛠️ Editar ou Excluir Lançamento")
+        
+        opcoes_hist = {
+            f"ID #{row['id']} - {row['data']} | [{row['tipo']}] R$ {row['valor_total']:.2f} (Perc: {row['porcentagem']})": row['id']
+            for _, row in df_exibir.iterrows()
+        }
+        
+        item_hist_sel = st.selectbox("Selecione um lançamento para alterar:", list(opcoes_hist.keys()), key="select_hist")
+        id_hist_sel = opcoes_hist[item_hist_sel]
+        
+        dados_hist_item = df_hist[df_hist['id'] == id_hist_sel].iloc[0]
+        
+        # Converte string de data para objeto date do Streamlit
+        try:
+            dt_obj = datetime.strptime(dados_hist_item['data'], "%d/%m/%Y").date()
+        except ValueError:
+            dt_obj = datetime.now().date()
+
+        col_h1, col_h2, col_h3, col_h4 = st.columns([1, 1, 1, 1])
+        
+        with col_h1:
+            nova_dt_h = st.date_input("Nova Data", value=dt_obj, key=f"dt_h_{id_hist_sel}")
+        
+        with col_h2:
+            novo_val_h = st.number_input("Novo Valor (R$)", value=float(dados_hist_item['valor_total']), min_value=0.01, step=1.0, key=f"val_h_{id_hist_sel}")
+            
+        with col_h3:
+            # Tratamento de porcentagem caso seja compra
+            is_compra = dados_hist_item['tipo'] == 'COMPRA'
+            perc_atual_val = 0.0
+            if is_compra:
+                p_raw = str(dados_hist_item['porcentagem']).replace('%', '').strip()
+                try:
+                    perc_atual_val = float(p_raw)
+                except ValueError:
+                    perc_atual_val = 0.0
+            
+            nova_perc_h = st.number_input("Porcentagem (%)", value=perc_atual_val, min_value=0.0, step=0.5, disabled=not is_compra, key=f"perc_h_{id_hist_sel}")
+
+        with col_h4:
+            st.write("Ações:")
+            btn_salvar_hist = st.button("💾 Salvar Alteração", key=f"btn_save_h_{id_hist_sel}")
+            btn_deletar_hist = st.button("🗑️ Deletar Lançamento", type="primary", key=f"btn_del_h_{id_hist_sel}")
+
+        if btn_salvar_hist:
+            dt_str_nova = nova_dt_h.strftime("%d/%m/%Y")
+            if is_compra:
+                perc_str_nova = f"{nova_perc_h:g}%"
+                dif_nova = f"{(novo_val_h / nova_perc_h):.2f}" if nova_perc_h > 0 else "0.00"
+            else:
+                perc_str_nova = "-"
+                dif_nova = "-"
+                
+            atualizar_transacao(id_hist_sel, dt_str_nova, novo_val_h, perc_str_nova, dif_nova)
+            st.success(f"Lançamento #{id_hist_sel} atualizado com sucesso!")
             st.rerun()
+
+        if btn_deletar_hist:
+            deletar_transacao(id_hist_sel)
+            st.success(f"Lançamento #{id_hist_sel} excluído com sucesso!")
+            st.rerun()
+            
     else:
         st.info("Nenhum lançamento encontrado.")
 
