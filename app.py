@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 # Configuração da página
 st.set_page_config(
-    page_title="Mercadinho de Betim",
+    page_title="Mercadinho Nova Esperança",
     page_icon="🛒",
     layout="wide"
 )
@@ -127,7 +127,7 @@ def deletar_despesa(db_id):
 inicializar_banco_dados()
 
 # --- CABEÇALHO ---
-st.title("🛒 Mercadinho de Betim")
+st.title("🛒 Mercadinho Nova Esperança")
 st.subheader("Sistema de Gestão Financeira")
 
 # Menu Principal em Abas
@@ -188,7 +188,6 @@ with aba_lancamentos:
         st.subheader("🛒 Lançar Venda")
         with st.form("form_venda", clear_on_submit=True):
             dt_venda = st.date_input("Data da Venda", datetime.now(), key="dt_venda")
-            # Usa value=None para deixar o campo vazio e fácil de digitar sem apagar 0.00
             val_venda = st.number_input("Valor Bruto (R$)", value=None, min_value=0.01, step=1.0, placeholder="Digite o valor...", key="val_venda")
             sub_venda = st.form_submit_button("Salvar Venda", type="primary")
             
@@ -212,7 +211,6 @@ with aba_lancamentos:
         st.subheader("📦 Lançar Compra")
         with st.form("form_compra", clear_on_submit=True):
             dt_compra = st.date_input("Data da Compra", datetime.now(), key="dt_compra")
-            # Usa value=None para deixar os campos limpos/vazios
             val_compra = st.number_input("Valor Bruto (R$)", value=None, min_value=0.01, step=1.0, placeholder="Digite o valor...", key="val_compra")
             perc_compra = st.number_input("Porcentagem (%)", value=None, min_value=0.0, step=0.5, placeholder="Digite a porcentagem...", key="perc_compra")
             sub_compra = st.form_submit_button("Salvar Compra", type="primary")
