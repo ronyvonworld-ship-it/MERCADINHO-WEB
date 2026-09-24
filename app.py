@@ -332,6 +332,7 @@ with aba_balanco:
     
     conn = sqlite3.connect(DB_PATH)
     df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico ORDER BY id DESC", conn)
+    df_desp_balanco = pd.read_sql_query("SELECT valor FROM despesas", conn)
     conn.close()
 
     if not df_hist.empty:
@@ -347,12 +348,43 @@ with aba_balanco:
         
         tot_vendas = df_hist[df_hist["tipo"] == "VENDA"]["valor_total"].sum()
         tot_compras = df_hist[df_hist["tipo"] == "COMPRA"]["valor_total"].sum()
-        lucro = tot_vendas - tot_compras
-        
-        c1, c2, c3 = st.columns(3)
+        tot_despesas = df_desp_balanco["valor"].sum() if not df_desp_balanco.empty else 0.0
+        lucro_bruto = tot_vendas - tot_compras
+
+        # Cálculos de porcentagens e diferenças totais
+        soma_porcentagem_tot = 0.0
+        soma_diferenca_tot = 0.0
+
+        for _, row in df_hist.iterrows():
+            p_str = str(row["porcentagem"]).replace("%", "").strip()
+            if p_str != "-":
+                try:
+                    soma_porcentagem_tot += float(p_str)
+                except ValueError:
+                    pass
+
+            d_str = str(row["diferenca"]).strip()
+            if d_str != "-":
+                try:
+                    soma_diferenca_tot += float(d_str)
+                except ValueError:
+                    pass
+
+        # Balanço Corregido: Estoque Caixa + Vendas - Compras - Despesas
+        saldo_estoque = obter_saldo_estoque()
+        balanco_corrigido = saldo_estoque + tot_vendas - tot_compras - tot_despesas
+
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Total Vendas", f"R$ {tot_vendas:.2f}")
         c2.metric("Total Compras", f"R$ {tot_compras:.2f}")
-        c3.metric("Lucro Bruto", f"R$ {lucro:.2f}")
+        c3.metric("Lucro Bruto", f"R$ {lucro_bruto:.2f}")
+        c4.metric("📊 Soma Porcentagens", f"{soma_porcentagem_tot:g}%")
+        c5.metric("⚖️ Soma Diferenças", f"R$ {soma_diferenca_tot:.2f}")
+
+        st.metric(
+            "📐 Balanço Corrigido (Caixa + Vendas - Compras - Despesas)", 
+            f"R$ {balanco_corrigido:.2f}"
+        )
 
         st.divider()
         st.subheader("🛠️ Editar ou Excluir Lançamento")
