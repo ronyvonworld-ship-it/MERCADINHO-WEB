@@ -222,14 +222,13 @@ with aba_lancamentos:
     st.caption(f"Exibindo dados do dia: **{data_resumo_str}**")
     m1, m2, m3, m4, m5 = st.columns(5)
     
-    # Exibição com Cores Destacadas
-    m1.markdown(f"**🛒 Vendas do Dia**<3><h3 style='color: #2e7d32; margin-top:0;'>R$ {vendas_dia:.2f}</h3>", unsafe_allow_html=True)
-    m2.markdown(f"**📦 Compras do Dia**<3><h3 style='color: #c62828; margin-top:0;'>R$ {compras_dia:.2f}</h3>", unsafe_allow_html=True)
+    m1.markdown(f"**🛒 Vendas do Dia**<h3 style='color: #2e7d32; margin-top:0;'>R$ {vendas_dia:.2f}</h3>", unsafe_allow_html=True)
+    m2.markdown(f"**📦 Compras do Dia**<h3 style='color: #c62828; margin-top:0;'>R$ {compras_dia:.2f}</h3>", unsafe_allow_html=True)
     
     cor_lucro = "#2e7d32" if lucro_dia >= 0 else "#c62828"
-    m3.markdown(f"**💡 Lucro do Dia**<3><h3 style='color: {cor_lucro}; margin-top:0;'>R$ {lucro_dia:.2f}</h3>", unsafe_allow_html=True)
-    m4.markdown(f"**📊 Soma Porcentagens**<3><h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_dia:g}%</h3>", unsafe_allow_html=True)
-    m5.markdown(f"**⚖️ Soma Diferenças**<3><h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_dia:.2f}</h3>", unsafe_allow_html=True)
+    m3.markdown(f"**💡 Lucro do Dia**<h3 style='color: {cor_lucro}; margin-top:0;'>R$ {lucro_dia:.2f}</h3>", unsafe_allow_html=True)
+    m4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_dia:g}%</h3>", unsafe_allow_html=True)
+    m5.markdown(f"**⚖️ Soma Diferenças**<h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_dia:.2f}</h3>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -314,64 +313,84 @@ with aba_despesas:
 
     st.divider()
     
-    col_tulo, col_filtro = st.columns([2, 1])
-    with col_tulo:
-        st.subheader("Histórico de Despesas")
-    with col_filtro:
-        mostrar_tudo = st.checkbox("Mostrar Histórico Completo", value=False)
-
-    hoje_str_d = datetime.now().strftime("%d/%m/%Y")
+    st.subheader("Histórico de Despesas")
     
     conn = sqlite3.connect(DB_PATH)
-    if mostrar_tudo:
-        df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas ORDER BY id DESC", conn)
-    else:
-        df_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas WHERE data = ? ORDER BY id DESC", conn, params=(hoje_str_d,))
-    
-    df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor FROM despesas ORDER BY id DESC", conn)
+    df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas ORDER BY id DESC", conn)
     conn.close()
 
-    if not df_desp.empty:
-        st.dataframe(df_desp, use_container_width=True)
-        tot_d_exibido = df_desp['valor'].sum()
-        st.markdown(f"**Total Exibido:** <span style='color: #c62828; font-size: 1.3em; font-weight: bold;'>R$ {tot_d_exibido:.2f}</span>", unsafe_allow_html=True)
-    else:
-        if not mostrar_tudo:
-            st.info(f"Nenhuma despesa lançada para hoje ({hoje_str_d}). Marque 'Mostrar Histórico Completo' para ver despesas anteriores.")
-        else:
-            st.info("Nenhuma despesa cadastrada no sistema.")
+    meses_dict_desp = {
+        1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+        5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+        9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+    }
 
     if not df_todas_desp.empty:
+        df_todas_desp["dt_parsed"] = pd.to_datetime(df_todas_desp["data"], format="%d/%m/%Y", errors="coerce")
+        anos_disponiveis_d = sorted(df_todas_desp["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
+        anos_opcoes_d = ["Todos os Anos"] + [str(a) for a in anos_disponiveis_d]
+
+        col_fd1, col_fd2, col_fd3 = st.columns([1, 1, 1])
+        with col_fd1:
+            ano_sel_d = st.selectbox("Filtrar por Ano", anos_opcoes_d, key="sel_ano_desp")
+        with col_fd2:
+            mes_sel_d = st.selectbox("Filtrar por Mês", ["Todos os Meses"] + list(meses_dict_desp.values()), key="sel_mes_desp")
+        with col_fd3:
+            st.write("")
+            st.write("")
+            mostrar_tudo_desp = st.checkbox("Mostrar Histórico Completo", value=False, key="chk_tudo_desp")
+
+        df_desp_filtrado = df_todas_desp.copy()
+
+        if not mostrar_tudo_desp:
+            if ano_sel_d != "Todos os Anos":
+                df_desp_filtrado = df_desp_filtrado[df_desp_filtrado["dt_parsed"].dt.year == int(ano_sel_d)]
+            if mes_sel_d != "Todos os Meses":
+                m_num_d = [k for k, v in meses_dict_desp.items() if v == mes_sel_d][0]
+                df_desp_filtrado = df_desp_filtrado[df_desp_filtrado["dt_parsed"].dt.month == m_num_d]
+
+        df_exibir_desp = df_desp_filtrado.drop(columns=["dt_parsed"])
+
+        if not df_exibir_desp.empty:
+            st.dataframe(df_exibir_desp, use_container_width=True)
+            tot_d_exibido = df_exibir_desp['valor'].sum()
+            st.markdown(f"**Total Exibido em Despesas:** <span style='color: #c62828; font-size: 1.3em; font-weight: bold;'>R$ {tot_d_exibido:.2f}</span>", unsafe_allow_html=True)
+        else:
+            st.info("Nenhuma despesa encontrada para os filtros selecionados.")
+
         st.divider()
         st.subheader("🛠️ Editar ou Excluir Despesa")
         
         opcoes_despesa = {
             f"ID #{row['id']} - {row['data']} | {row['descricao']} (R$ {row['valor']:.2f})": row['id']
-            for _, row in df_todas_desp.iterrows()
-        }
-        
-        item_selecionado = st.selectbox("Selecione uma despesa para alterar:", list(opcoes_despesa.keys()))
-        id_selecionado = opcoes_despesa[item_selecionado]
-        
-        dados_item = df_todas_desp[df_todas_desp['id'] == id_selecionado].iloc[0]
-        
-        col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
-        with col_ed1:
-            novo_desc = st.text_input("Editar Descrição", value=dados_item['descricao'], key=f"desc_{id_selecionado}")
-        with col_ed2:
-            novo_valor = st.number_input("Editar Valor (R$)", value=float(dados_item['valor']), min_value=0.01, step=1.0, key=f"val_{id_selecionado}")
-        with col_ed3:
-            st.write("Ações:")
-            btn_salvar_edit = st.button("💾 Salvar Alteração", key=f"btn_edit_{id_selecionado}")
-            btn_deletar = st.button("🗑️ Deletar Despesa", type="primary", key=f"btn_del_{id_selecionado}")
+            for _, row in df_exibir_desp.iterrows()
+        } if not df_exibir_desp.empty else {}
 
-        if btn_salvar_edit:
-            atualizar_despesa(id_selecionado, novo_desc, novo_valor)
-            st.success(f"Despesa #{id_selecionado} atualizada com sucesso!")
-            st.rerun()
+        if opcoes_despesa:
+            item_selecionado = st.selectbox("Selecione uma despesa para alterar:", list(opcoes_despesa.keys()))
+            id_selecionado = opcoes_despesa[item_selecionado]
+            
+            dados_item = df_todas_desp[df_todas_desp['id'] == id_selecionado].iloc[0]
+            
+            col_ed1, col_ed2, col_ed3 = st.columns([2, 1, 1])
+            with col_ed1:
+                novo_desc = st.text_input("Editar Descrição", value=dados_item['descricao'], key=f"desc_{id_selecionado}")
+            with col_ed2:
+                novo_valor = st.number_input("Editar Valor (R$)", value=float(dados_item['valor']), min_value=0.01, step=1.0, key=f"val_{id_selecionado}")
+            with col_ed3:
+                st.write("Ações:")
+                btn_salvar_edit = st.button("💾 Salvar Alteração", key=f"btn_edit_{id_selecionado}")
+                btn_deletar = st.button("🗑️ Deletar Despesa", type="primary", key=f"btn_del_{id_selecionado}")
 
-        if btn_deletar:
-            modal_confirmar_deletar_despesa(id_selecionado, dados_item['descricao'])
+            if btn_salvar_edit:
+                atualizar_despesa(id_selecionado, novo_desc, novo_valor)
+                st.success(f"Despesa #{id_selecionado} atualizada com sucesso!")
+                st.rerun()
+
+            if btn_deletar:
+                modal_confirmar_deletar_despesa(id_selecionado, dados_item['descricao'])
+    else:
+        st.info("Nenhuma despesa cadastrada no sistema.")
 
 # --- ABA 3: BALANÇO GERAL ---
 with aba_balanco:
@@ -397,11 +416,11 @@ with aba_balanco:
 
         col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
-            ano_sel_b = st.selectbox("Filtrar por Ano", anos_opcoes)
+            ano_sel_b = st.selectbox("Filtrar por Ano", anos_opcoes, key="sel_ano_balanco")
         with col_f2:
-            mes_sel_b = st.selectbox("Filtrar por Mês", ["Todos os Meses"] + list(meses_nomes_dict.values()))
+            mes_sel_b = st.selectbox("Filtrar por Mês", ["Todos os Meses"] + list(meses_nomes_dict.values()), key="sel_mes_balanco")
         with col_f3:
-            tipo_filtro = st.selectbox("Filtrar por Tipo", ["TODOS", "VENDA", "COMPRA"])
+            tipo_filtro = st.selectbox("Filtrar por Tipo", ["TODOS", "VENDA", "COMPRA"], key="sel_tipo_balanco")
 
         df_hist_filtrado = df_hist.copy()
         df_desp_filtrado = df_desp_balanco.copy()
@@ -449,7 +468,6 @@ with aba_balanco:
         saldo_estoque = obter_saldo_estoque()
         balanco_corrigido = saldo_estoque + tot_vendas - tot_compras - tot_despesas
 
-        # Métricas com Cores
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.markdown(f"**Total Vendas**<h3 style='color: #2e7d32; margin-top:0;'>R$ {tot_vendas:.2f}</h3>", unsafe_allow_html=True)
         c2.markdown(f"**Total Compras**<h3 style='color: #c62828; margin-top:0;'>R$ {tot_compras:.2f}</h3>", unsafe_allow_html=True)
