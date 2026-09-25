@@ -3,6 +3,8 @@ import pandas as pd
 import sqlite3
 from datetime import datetime
 import matplotlib.pyplot as plt
+import dropbox
+from dropbox.exceptions import ApiError
 
 # Configuração da página
 st.set_page_config(
@@ -13,7 +15,37 @@ st.set_page_config(
 
 DB_PATH = "historico_mercadinho.db"
 
-# --- BANCO DE DADOS ---
+# --- CONFIGURAÇÃO DO DROPBOX ---
+DROPBOX_TOKEN = "sl.u.AGzI4kqD1F6T1ZXEigvnFwQolfXwf9ggrjhMerIkF0wps4qFJahqCMV9wuCNituBbDnS8gyNE1i2aGakc7ef5x-sW9QkkXGSQGekct_Q_ZMyQCqKvYMMPcJj42MHmV0XkmMrlIYHicW07EbhLqJdQ39ub6yazQyxRaA5tVwLhIRBCYNXpW7jJVncDXNL3SZbqUOt4ODauOlFQiQ1NnlTexxiX4G26GLBH5SxDQhMMobU3S_wFCj5Gjj5-5-0Uk225mex4FSNCxy8q-2VjDFPWd_UGajPd6kEqBge4l_S0x4QFd94D0w6xBp5L3OW26mu4n-6k0v6a-W3-DgUxqNgkhNxnxf5z8OK5qHBA-nYUZ5_m0Jg1S3uDJf3K8GsX35LAeZXCCqhzURMrFE-YVHD4BMpMBhK2dWdGOC-zdYdNyrjQQiGkFxqgVKj_IQ1cPqN-nW7gDZfbq2awml8Xqwe6gKiWlzS-wDQC4isc4jIznf0B_4NXdvxlSHqQKqFw-s0YajH2MxRn37vEhC7i9OhqWO3k-6GHl2qgW9YKjq6ydN_ApxJ-mgmYheH8Nvl3_9fj1BbMF9IbHfDyWFr04eIPdMabF84eWwm1c_9XEpNwOHZUabjRiJ-qbLtc3FZpBruL-OJ01UoUq-Oj31UuWU3D4_FlV5-zu800NJGOQT0_SmcQJUSy00oBvcxQ1DxoS7sreZwlwCRpZuQka31Ohh-v-WpvIUbWNCCmoFA1_v_-NKLRTuIZthIz5aldAhhTuzTovRWNBnBHZtRndcWDUjU_L0JiJI_Zmz3y-RKffIcsVr-jg6fb5FFOeypRvRC3y23dlctx_8B6jgjCzj0TPH87dvU5lXQBeEoCMnE1NjII4p8rGvp5eV2hvIPiJS7cfmnu7rXTcwUsnswdGh83ig0pAT6SNra0gxjg3CvNLgpxrDX-VouVkbYCSRiH7m631qXYAVwit7YJfkuE6HynU2dCnnGeMEmHl-ziP7IcE0S7ftjrTaBLNjnaYV2zpyZ1D2wS2x6iOYnW6yxtxJnkN6fgnAfhZuA5ZgwZQTwaCQuGTbwgUJQ9vQsFi-bYyzrecTvdNkwDWN-fzvYRttyqqAGPCGmYIRtSnnPBGvzyjcbUZnCXlei-N7oEJpUpAGRRmjsyp_qI4X9xbRH_ddG_iMXvKDEM4tuiUCJ0qQDtV2ObywS2Jxnbjn5XKHA5IPInnzILqCgrWidr7JrWrp76f2kUAWBk6k-4FXvlejqrULoul0TVOgcMjcS8xLaDAfHRrmCIToPYPb_xNOBMbwPzW2lyMnRuJB5OAxAXXR7x1T18CUscJ04KBf2QXmnnU3C9HdeSx6_e-IA2P7G8lBcgVQFQBf8Tw6G0uAz3e8eWkmnscCANVKWkA0yyX0WwB2K6UhPIVs-pmdGLRKc5yFIlO2jWuWtgK200bFyMvac3l3OcgcxJw"
+DROPBOX_FILE_PATH = "/historico_mercadinho.db"
+
+def carregar_db_do_dropbox():
+    try:
+        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+        metadata, response = dbx.files_download(path=DROPBOX_FILE_PATH)
+        with open(DB_PATH, "wb") as f:
+            f.write(response.content)
+        return True
+    except Exception as e:
+        print(f"Aviso: Não foi possível carregar o banco de dados do Dropbox: {e}")
+        return False
+
+def salvar_db_no_dropbox():
+    try:
+        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+        with open(DB_PATH, "rb") as f:
+            dbx.files_upload(f.read(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
+        return True
+    except Exception as e:
+        print(f"Erro ao enviar banco de dados para o Dropbox: {e}")
+        return False
+
+# Carrega a versão mais recente do Dropbox na inicialização
+if "db_carregado" not in st.session_state:
+    carregar_db_do_dropbox()
+    st.session_state["db_carregado"] = True
+
+# --- BANCO DE DADOS LOCAL ---
 def inicializar_banco_dados():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -64,6 +96,7 @@ def atualizar_saldo_estoque(novo_saldo):
     cursor.execute("UPDATE estoque_caixa SET saldo = ? WHERE id = 1", (novo_saldo,))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def salvar_transacao(item):
     conn = sqlite3.connect(DB_PATH)
@@ -75,6 +108,7 @@ def salvar_transacao(item):
     ''', (item["data"], item["tipo"], item["produto"], item["valor_total"], item["porcentagem"], item["diferenca"], dt_reg))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def atualizar_transacao(db_id, data_str, valor_total, porcentagem_str, diferenca_str):
     conn = sqlite3.connect(DB_PATH)
@@ -86,6 +120,7 @@ def atualizar_transacao(db_id, data_str, valor_total, porcentagem_str, diferenca
     ''', (data_str, valor_total, porcentagem_str, diferenca_str, db_id))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def deletar_transacao(db_id):
     conn = sqlite3.connect(DB_PATH)
@@ -93,6 +128,7 @@ def deletar_transacao(db_id):
     cursor.execute("DELETE FROM historico WHERE id = ?", (db_id,))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def salvar_despesa(data_str, desc, valor):
     conn = sqlite3.connect(DB_PATH)
@@ -104,6 +140,7 @@ def salvar_despesa(data_str, desc, valor):
     ''', (data_str, desc, valor, dt_reg))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def atualizar_despesa(db_id, desc, valor):
     conn = sqlite3.connect(DB_PATH)
@@ -115,6 +152,7 @@ def atualizar_despesa(db_id, desc, valor):
     ''', (desc, valor, db_id))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 def deletar_despesa(db_id):
     conn = sqlite3.connect(DB_PATH)
@@ -122,6 +160,7 @@ def deletar_despesa(db_id):
     cursor.execute("DELETE FROM despesas WHERE id = ?", (db_id,))
     conn.commit()
     conn.close()
+    salvar_db_no_dropbox()
 
 # Inicializa as tabelas do SQLite
 inicializar_banco_dados()
@@ -162,6 +201,7 @@ def modal_confirmar_restauracao(uploaded_file):
         if st.button("🔴 Sim, Restaurar", type="primary", use_container_width=True):
             with open(DB_PATH, "wb") as f:
                 f.write(uploaded_file.getbuffer())
+            salvar_db_no_dropbox()
             st.success("Banco de dados restaurado com sucesso!")
             st.rerun()
     with col_c2:
