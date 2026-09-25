@@ -126,6 +126,48 @@ def deletar_despesa(db_id):
 # Inicializa as tabelas do SQLite
 inicializar_banco_dados()
 
+# --- MODAIS DE CONFIRMAÇÃO (st.dialog) ---
+@st.dialog("⚠️ Confirmar Exclusão de Despesa")
+def modal_confirmar_deletar_despesa(id_despesa, desc):
+    st.write(f"Tem certeza que deseja excluir permanentemente a despesa **#{id_despesa} - {desc}**?")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        if st.button("🔴 Sim, Excluir", type="primary", use_container_width=True):
+            deletar_despesa(id_despesa)
+            st.success("Despesa excluída com sucesso!")
+            st.rerun()
+    with col_c2:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+
+@st.dialog("⚠️ Confirmar Exclusão de Lançamento")
+def modal_confirmar_deletar_transacao(id_transacao, tipo, valor):
+    st.write(f"Tem certeza que deseja excluir o lançamento **#{id_transacao}** ({tipo} de R$ {valor:.2f})?")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        if st.button("🔴 Sim, Excluir", type="primary", use_container_width=True):
+            deletar_transacao(id_transacao)
+            st.success("Lançamento excluído com sucesso!")
+            st.rerun()
+    with col_c2:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+
+@st.dialog("⚠️ Confirmar Restauração de Backup")
+def modal_confirmar_restauracao(uploaded_file):
+    st.warning("Atenção! Esta ação irá sobrescrever o banco de dados atual com o arquivo de backup enviado.")
+    st.write("Deseja realmente continuar?")
+    col_c1, col_c2 = st.columns(2)
+    with col_c1:
+        if st.button("🔴 Sim, Restaurar", type="primary", use_container_width=True):
+            with open(DB_PATH, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.success("Banco de dados restaurado com sucesso!")
+            st.rerun()
+    with col_c2:
+        if st.button("Cancelar", use_container_width=True):
+            st.rerun()
+
 # --- CABEÇALHO ---
 st.title("🛒 Mercadinho Nova Esperança")
 st.subheader("Sistema de Gestão Financeira")
@@ -142,42 +184,52 @@ aba_lancamentos, aba_despesas, aba_balanco, aba_estoque, aba_resumo, aba_backup 
 
 # --- ABA 1: LANÇAMENTOS (COMPRA / VENDA) ---
 with aba_lancamentos:
-    hoje_str = datetime.now().strftime("%d/%m/%Y")
+    col_top1, col_top2 = st.columns([2, 1])
+    with col_top1:
+        st.markdown("### 📅 Resumo Financeiro Diário")
+    with col_top2:
+        dt_resumo_sel = st.date_input("Selecione a Data do Resumo", datetime.now(), key="dt_resumo_dia")
+        
+    data_resumo_str = dt_resumo_sel.strftime("%d/%m/%Y")
     
     conn = sqlite3.connect(DB_PATH)
-    df_hoje = pd.read_sql_query("SELECT tipo, valor_total, porcentagem, diferenca FROM historico WHERE data = ?", conn, params=(hoje_str,))
+    df_dia = pd.read_sql_query("SELECT tipo, valor_total, porcentagem, diferenca FROM historico WHERE data = ?", conn, params=(data_resumo_str,))
     conn.close()
 
-    vendas_hoje = df_hoje[df_hoje["tipo"] == "VENDA"]["valor_total"].sum() if not df_hoje.empty else 0.0
-    compras_hoje = df_hoje[df_hoje["tipo"] == "COMPRA"]["valor_total"].sum() if not df_hoje.empty else 0.0
-    lucro_hoje = vendas_hoje - compras_hoje
+    vendas_dia = df_dia[df_dia["tipo"] == "VENDA"]["valor_total"].sum() if not df_dia.empty else 0.0
+    compras_dia = df_dia[df_dia["tipo"] == "COMPRA"]["valor_total"].sum() if not df_dia.empty else 0.0
+    lucro_dia = vendas_dia - compras_dia
 
-    soma_porcentagem_hoje = 0.0
-    soma_diferenca_hoje = 0.0
+    soma_porcentagem_dia = 0.0
+    soma_diferenca_dia = 0.0
 
-    if not df_hoje.empty:
-        for _, row in df_hoje.iterrows():
+    if not df_dia.empty:
+        for _, row in df_dia.iterrows():
             p_str = str(row["porcentagem"]).replace("%", "").strip()
             if p_str != "-":
                 try:
-                    soma_porcentagem_hoje += float(p_str)
+                    soma_porcentagem_dia += float(p_str)
                 except ValueError:
                     pass
 
             d_str = str(row["diferenca"]).strip()
             if d_str != "-":
                 try:
-                    soma_diferenca_hoje += float(d_str)
+                    soma_diferenca_dia += float(d_str)
                 except ValueError:
                     pass
 
-    st.markdown(f"### 📅 Resumo do Dia de Hoje ({hoje_str})")
+    st.caption(f"Exibindo dados do dia: **{data_resumo_str}**")
     m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("🛒 Vendas do Dia", f"R$ {vendas_hoje:.2f}")
-    m2.metric("📦 Compras do Dia", f"R$ {compras_hoje:.2f}")
-    m3.metric("💡 Lucro do Dia", f"R$ {lucro_hoje:.2f}")
-    m4.metric("📊 Soma Porcentagens", f"{soma_porcentagem_hoje:g}%")
-    m5.metric("⚖️ Soma Diferenças", f"R$ {soma_diferenca_hoje:.2f}")
+    
+    # Exibição com Cores Destacadas
+    m1.markdown(f"**🛒 Vendas do Dia**<3><h3 style='color: #2e7d32; margin-top:0;'>R$ {vendas_dia:.2f}</h3>", unsafe_allow_html=True)
+    m2.markdown(f"**📦 Compras do Dia**<3><h3 style='color: #c62828; margin-top:0;'>R$ {compras_dia:.2f}</h3>", unsafe_allow_html=True)
+    
+    cor_lucro = "#2e7d32" if lucro_dia >= 0 else "#c62828"
+    m3.markdown(f"**💡 Lucro do Dia**<3><h3 style='color: {cor_lucro}; margin-top:0;'>R$ {lucro_dia:.2f}</h3>", unsafe_allow_html=True)
+    m4.markdown(f"**📊 Soma Porcentagens**<3><h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_dia:g}%</h3>", unsafe_allow_html=True)
+    m5.markdown(f"**⚖️ Soma Diferenças**<3><h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_dia:.2f}</h3>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -281,11 +333,8 @@ with aba_despesas:
 
     if not df_desp.empty:
         st.dataframe(df_desp, use_container_width=True)
-        st.metric(
-            "Total Exibido", 
-            f"R$ {df_desp['valor'].sum():.2f}", 
-            delta="Apenas Hoje" if not mostrar_tudo else "Histórico Todo"
-        )
+        tot_d_exibido = df_desp['valor'].sum()
+        st.markdown(f"**Total Exibido:** <span style='color: #c62828; font-size: 1.3em; font-weight: bold;'>R$ {tot_d_exibido:.2f}</span>", unsafe_allow_html=True)
     else:
         if not mostrar_tudo:
             st.info(f"Nenhuma despesa lançada para hoje ({hoje_str_d}). Marque 'Mostrar Histórico Completo' para ver despesas anteriores.")
@@ -322,9 +371,7 @@ with aba_despesas:
             st.rerun()
 
         if btn_deletar:
-            deletar_despesa(id_selecionado)
-            st.success(f"Despesa #{id_selecionado} excluída com sucesso!")
-            st.rerun()
+            modal_confirmar_deletar_despesa(id_selecionado, dados_item['descricao'])
 
 # --- ABA 3: BALANÇO GERAL ---
 with aba_balanco:
@@ -336,7 +383,6 @@ with aba_balanco:
     conn.close()
 
     if not df_hist.empty:
-        # Extrair anos e meses disponíveis para o filtro
         df_hist["dt_parsed"] = pd.to_datetime(df_hist["data"], format="%d/%m/%Y", errors="coerce")
         df_desp_balanco["dt_parsed"] = pd.to_datetime(df_desp_balanco["data"], format="%d/%m/%Y", errors="coerce")
 
@@ -357,7 +403,6 @@ with aba_balanco:
         with col_f3:
             tipo_filtro = st.selectbox("Filtrar por Tipo", ["TODOS", "VENDA", "COMPRA"])
 
-        # Aplicar Filtros aos Dados
         df_hist_filtrado = df_hist.copy()
         df_desp_filtrado = df_desp_balanco.copy()
 
@@ -375,7 +420,6 @@ with aba_balanco:
         if tipo_filtro != "TODOS":
             df_exibir = df_exibir[df_exibir["tipo"] == tipo_filtro]
 
-        # Remover coluna auxiliar do display
         df_exibir_display = df_exibir.drop(columns=["dt_parsed"])
         st.dataframe(df_exibir_display, use_container_width=True)
 
@@ -384,7 +428,6 @@ with aba_balanco:
         tot_despesas = df_desp_filtrado["valor"].sum() if not df_desp_filtrado.empty else 0.0
         lucro_bruto = tot_vendas - tot_compras
 
-        # Cálculos de porcentagens e diferenças totais no período filtrado
         soma_porcentagem_tot = 0.0
         soma_diferenca_tot = 0.0
 
@@ -403,20 +446,24 @@ with aba_balanco:
                 except ValueError:
                     pass
 
-        # Balanço Corregido: Estoque Caixa + Vendas - Compras - Despesas
         saldo_estoque = obter_saldo_estoque()
         balanco_corrigido = saldo_estoque + tot_vendas - tot_compras - tot_despesas
 
+        # Métricas com Cores
         c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Total Vendas", f"R$ {tot_vendas:.2f}")
-        c2.metric("Total Compras", f"R$ {tot_compras:.2f}")
-        c3.metric("Lucro Bruto", f"R$ {lucro_bruto:.2f}")
-        c4.metric("📊 Soma Porcentagens", f"{soma_porcentagem_tot:g}%")
-        c5.metric("⚖️ Soma Diferenças", f"R$ {soma_diferenca_tot:.2f}")
+        c1.markdown(f"**Total Vendas**<h3 style='color: #2e7d32; margin-top:0;'>R$ {tot_vendas:.2f}</h3>", unsafe_allow_html=True)
+        c2.markdown(f"**Total Compras**<h3 style='color: #c62828; margin-top:0;'>R$ {tot_compras:.2f}</h3>", unsafe_allow_html=True)
+        
+        cor_lb = "#2e7d32" if lucro_bruto >= 0 else "#c62828"
+        c3.markdown(f"**Lucro Bruto**<h3 style='color: {cor_lb}; margin-top:0;'>R$ {lucro_bruto:.2f}</h3>", unsafe_allow_html=True)
+        c4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_tot:g}%</h3>", unsafe_allow_html=True)
+        c5.markdown(f"**⚖️ Soma Diferenças**<h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_tot:.2f}</h3>", unsafe_allow_html=True)
 
-        st.metric(
-            "📐 Balanço Corrigido (Caixa + Vendas - Compras - Despesas)", 
-            f"R$ {balanco_corrigido:.2f}"
+        cor_bc = "#2e7d32" if balanco_corrigido >= 0 else "#c62828"
+        st.markdown(
+            f"### 📐 Balanço Corrigido (Caixa + Vendas - Compras - Despesas)\n"
+            f"<h2 style='color: {cor_bc}; margin-top:0;'>R$ {balanco_corrigido:.2f}</h2>",
+            unsafe_allow_html=True
         )
 
         st.divider()
@@ -477,9 +524,7 @@ with aba_balanco:
                 st.rerun()
 
             if btn_deletar_hist:
-                deletar_transacao(id_hist_sel)
-                st.success(f"Lançamento #{id_hist_sel} excluído com sucesso!")
-                st.rerun()
+                modal_confirmar_deletar_transacao(id_hist_sel, dados_hist_item['tipo'], float(dados_hist_item['valor_total']))
         else:
             st.info("Nenhum lançamento encontrado para os filtros selecionados.")
             
@@ -491,7 +536,7 @@ with aba_estoque:
     st.header("💵 Dinheiro em Estoque Caixa")
     
     saldo_atual = obter_saldo_estoque()
-    st.metric("Saldo Atual em Estoque", f"R$ {saldo_atual:.2f}")
+    st.markdown(f"**Saldo Atual em Estoque:** <h2 style='color: #1565c0; margin-top:0;'>R$ {saldo_atual:.2f}</h2>", unsafe_allow_html=True)
     
     col_e1, col_e2 = st.columns(2)
     with col_e1:
@@ -572,7 +617,7 @@ with aba_resumo:
 
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(meses_nomes, v_list, marker='o', color='#2e7d32', label='Vendas (R$)')
-    ax.plot(meses_nomes, c_list, marker='o', color='#d32f2f', label='Compras (R$)')
+    ax.plot(meses_nomes, c_list, marker='o', color='#c62828', label='Compras (R$)')
     ax.plot(meses_nomes, d_list, marker='o', color='#e65100', label='Despesas (R$)')
     ax.set_title(f"Evolução Financeira - {ano_sel}")
     ax.set_ylabel("Valor (R$)")
@@ -608,7 +653,4 @@ with aba_backup:
         
         if uploaded_file is not None:
             if st.button("⚠️ Confirmar Restauração", type="primary"):
-                with open(DB_PATH, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.success("Banco de dados restaurado com sucesso!")
-                st.rerun()
+                modal_confirmar_restauracao(uploaded_file)
