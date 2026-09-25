@@ -332,30 +332,63 @@ with aba_balanco:
     
     conn = sqlite3.connect(DB_PATH)
     df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico ORDER BY id DESC", conn)
-    df_desp_balanco = pd.read_sql_query("SELECT valor FROM despesas", conn)
+    df_desp_balanco = pd.read_sql_query("SELECT data, valor FROM despesas", conn)
     conn.close()
 
     if not df_hist.empty:
-        col_f1, col_f2 = st.columns(2)
+        # Extrair anos e meses disponíveis para o filtro
+        df_hist["dt_parsed"] = pd.to_datetime(df_hist["data"], format="%d/%m/%Y", errors="coerce")
+        df_desp_balanco["dt_parsed"] = pd.to_datetime(df_desp_balanco["data"], format="%d/%m/%Y", errors="coerce")
+
+        anos_disponiveis = sorted(df_hist["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
+        anos_opcoes = ["Todos os Anos"] + [str(a) for a in anos_disponiveis]
+
+        meses_nomes_dict = {
+            1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril",
+            5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto",
+            9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"
+        }
+
+        col_f1, col_f2, col_f3 = st.columns(3)
         with col_f1:
+            ano_sel_b = st.selectbox("Filtrar por Ano", anos_opcoes)
+        with col_f2:
+            mes_sel_b = st.selectbox("Filtrar por Mês", ["Todos os Meses"] + list(meses_nomes_dict.values()))
+        with col_f3:
             tipo_filtro = st.selectbox("Filtrar por Tipo", ["TODOS", "VENDA", "COMPRA"])
-        
-        df_exibir = df_hist.copy()
+
+        # Aplicar Filtros aos Dados
+        df_hist_filtrado = df_hist.copy()
+        df_desp_filtrado = df_desp_balanco.copy()
+
+        if ano_sel_b != "Todos os Anos":
+            ano_num = int(ano_sel_b)
+            df_hist_filtrado = df_hist_filtrado[df_hist_filtrado["dt_parsed"].dt.year == ano_num]
+            df_desp_filtrado = df_desp_filtrado[df_desp_filtrado["dt_parsed"].dt.year == ano_num]
+
+        if mes_sel_b != "Todos os Meses":
+            mes_num = [k for k, v in meses_nomes_dict.items() if v == mes_sel_b][0]
+            df_hist_filtrado = df_hist_filtrado[df_hist_filtrado["dt_parsed"].dt.month == mes_num]
+            df_desp_filtrado = df_desp_filtrado[df_desp_filtrado["dt_parsed"].dt.month == mes_num]
+
+        df_exibir = df_hist_filtrado.copy()
         if tipo_filtro != "TODOS":
             df_exibir = df_exibir[df_exibir["tipo"] == tipo_filtro]
-            
-        st.dataframe(df_exibir, use_container_width=True)
-        
-        tot_vendas = df_hist[df_hist["tipo"] == "VENDA"]["valor_total"].sum()
-        tot_compras = df_hist[df_hist["tipo"] == "COMPRA"]["valor_total"].sum()
-        tot_despesas = df_desp_balanco["valor"].sum() if not df_desp_balanco.empty else 0.0
+
+        # Remover coluna auxiliar do display
+        df_exibir_display = df_exibir.drop(columns=["dt_parsed"])
+        st.dataframe(df_exibir_display, use_container_width=True)
+
+        tot_vendas = df_hist_filtrado[df_hist_filtrado["tipo"] == "VENDA"]["valor_total"].sum()
+        tot_compras = df_hist_filtrado[df_hist_filtrado["tipo"] == "COMPRA"]["valor_total"].sum()
+        tot_despesas = df_desp_filtrado["valor"].sum() if not df_desp_filtrado.empty else 0.0
         lucro_bruto = tot_vendas - tot_compras
 
-        # Cálculos de porcentagens e diferenças totais
+        # Cálculos de porcentagens e diferenças totais no período filtrado
         soma_porcentagem_tot = 0.0
         soma_diferenca_tot = 0.0
 
-        for _, row in df_hist.iterrows():
+        for _, row in df_hist_filtrado.iterrows():
             p_str = str(row["porcentagem"]).replace("%", "").strip()
             if p_str != "-":
                 try:
@@ -389,63 +422,66 @@ with aba_balanco:
         st.divider()
         st.subheader("🛠️ Editar ou Excluir Lançamento")
         
-        opcoes_hist = {
-            f"ID #{row['id']} - {row['data']} | [{row['tipo']}] R$ {row['valor_total']:.2f} (Perc: {row['porcentagem']})": row['id']
-            for _, row in df_exibir.iterrows()
-        }
-        
-        item_hist_sel = st.selectbox("Selecione um lançamento para alterar:", list(opcoes_hist.keys()), key="select_hist")
-        id_hist_sel = opcoes_hist[item_hist_sel]
-        
-        dados_hist_item = df_hist[df_hist['id'] == id_hist_sel].iloc[0]
-        
-        try:
-            dt_obj = datetime.strptime(dados_hist_item['data'], "%d/%m/%Y").date()
-        except ValueError:
-            dt_obj = datetime.now().date()
-
-        col_h1, col_h2, col_h3, col_h4 = st.columns([1, 1, 1, 1])
-        
-        with col_h1:
-            nova_dt_h = st.date_input("Nova Data", value=dt_obj, key=f"dt_h_{id_hist_sel}")
-        
-        with col_h2:
-            novo_val_h = st.number_input("Novo Valor (R$)", value=float(dados_hist_item['valor_total']), min_value=0.01, step=1.0, key=f"val_h_{id_hist_sel}")
+        if not df_exibir.empty:
+            opcoes_hist = {
+                f"ID #{row['id']} - {row['data']} | [{row['tipo']}] R$ {row['valor_total']:.2f} (Perc: {row['porcentagem']})": row['id']
+                for _, row in df_exibir.iterrows()
+            }
             
-        with col_h3:
-            is_compra = dados_hist_item['tipo'] == 'COMPRA'
-            perc_atual_val = 0.0
-            if is_compra:
-                p_raw = str(dados_hist_item['porcentagem']).replace('%', '').strip()
-                try:
-                    perc_atual_val = float(p_raw)
-                except ValueError:
-                    perc_atual_val = 0.0
+            item_hist_sel = st.selectbox("Selecione um lançamento para alterar:", list(opcoes_hist.keys()), key="select_hist")
+            id_hist_sel = opcoes_hist[item_hist_sel]
             
-            nova_perc_h = st.number_input("Porcentagem (%)", value=perc_atual_val, min_value=0.0, step=0.5, disabled=not is_compra, key=f"perc_h_{id_hist_sel}")
+            dados_hist_item = df_hist[df_hist['id'] == id_hist_sel].iloc[0]
+            
+            try:
+                dt_obj = datetime.strptime(dados_hist_item['data'], "%d/%m/%Y").date()
+            except ValueError:
+                dt_obj = datetime.now().date()
 
-        with col_h4:
-            st.write("Ações:")
-            btn_salvar_hist = st.button("💾 Salvar Alteração", key=f"btn_save_h_{id_hist_sel}")
-            btn_deletar_hist = st.button("🗑️ Deletar Lançamento", type="primary", key=f"btn_del_h_{id_hist_sel}")
-
-        if btn_salvar_hist:
-            dt_str_nova = nova_dt_h.strftime("%d/%m/%Y")
-            if is_compra:
-                perc_str_nova = f"{nova_perc_h:g}%"
-                dif_nova = f"{(novo_val_h / nova_perc_h):.2f}" if nova_perc_h > 0 else "0.00"
-            else:
-                perc_str_nova = "-"
-                dif_nova = "-"
+            col_h1, col_h2, col_h3, col_h4 = st.columns([1, 1, 1, 1])
+            
+            with col_h1:
+                nova_dt_h = st.date_input("Nova Data", value=dt_obj, key=f"dt_h_{id_hist_sel}")
+            
+            with col_h2:
+                novo_val_h = st.number_input("Novo Valor (R$)", value=float(dados_hist_item['valor_total']), min_value=0.01, step=1.0, key=f"val_h_{id_hist_sel}")
                 
-            atualizar_transacao(id_hist_sel, dt_str_nova, novo_val_h, perc_str_nova, dif_nova)
-            st.success(f"Lançamento #{id_hist_sel} atualizado com sucesso!")
-            st.rerun()
+            with col_h3:
+                is_compra = dados_hist_item['tipo'] == 'COMPRA'
+                perc_atual_val = 0.0
+                if is_compra:
+                    p_raw = str(dados_hist_item['porcentagem']).replace('%', '').strip()
+                    try:
+                        perc_atual_val = float(p_raw)
+                    except ValueError:
+                        perc_atual_val = 0.0
+                
+                nova_perc_h = st.number_input("Porcentagem (%)", value=perc_atual_val, min_value=0.0, step=0.5, disabled=not is_compra, key=f"perc_h_{id_hist_sel}")
 
-        if btn_deletar_hist:
-            deletar_transacao(id_hist_sel)
-            st.success(f"Lançamento #{id_hist_sel} excluído com sucesso!")
-            st.rerun()
+            with col_h4:
+                st.write("Ações:")
+                btn_salvar_hist = st.button("💾 Salvar Alteração", key=f"btn_save_h_{id_hist_sel}")
+                btn_deletar_hist = st.button("🗑️ Deletar Lançamento", type="primary", key=f"btn_del_h_{id_hist_sel}")
+
+            if btn_salvar_hist:
+                dt_str_nova = nova_dt_h.strftime("%d/%m/%Y")
+                if is_compra:
+                    perc_str_nova = f"{nova_perc_h:g}%"
+                    dif_nova = f"{(novo_val_h / nova_perc_h):.2f}" if nova_perc_h > 0 else "0.00"
+                else:
+                    perc_str_nova = "-"
+                    dif_nova = "-"
+                    
+                atualizar_transacao(id_hist_sel, dt_str_nova, novo_val_h, perc_str_nova, dif_nova)
+                st.success(f"Lançamento #{id_hist_sel} atualizado com sucesso!")
+                st.rerun()
+
+            if btn_deletar_hist:
+                deletar_transacao(id_hist_sel)
+                st.success(f"Lançamento #{id_hist_sel} excluído com sucesso!")
+                st.rerun()
+        else:
+            st.info("Nenhum lançamento encontrado para os filtros selecionados.")
             
     else:
         st.info("Nenhum lançamento encontrado.")
