@@ -15,13 +15,23 @@ st.set_page_config(
 
 DB_PATH = "historico_mercadinho.db"
 
-# --- CONFIGURAÇÃO DO DROPBOX ---
-DROPBOX_TOKEN = "sl.u.AGxUKmF13Svtu1X4Zo3uUpq1hAx_AF9fj8mTmJP77ixA2H1jL8qf80FyqqBVWR6ePcdPzsLuh6bVvnh0Td0sQiqaXHGRqHOhsBZAHvDjz5O35cD0Dj55GLvJ35aKvWfH_rLVlCD9TtbqLmzhT5bD1yA52rDbw1MC6UJ9IxOZCXdoGhLo_oOaTTW0ZQCTPLAKnlXxXVL2BpKmma9mJpV-TgfRw-w8jeCb48kdguJKIaLnFmh003AenmmNW9aSLQzNVLGWuGtx78dHvlLx53P95H-I0hUFfHnmW_RJ2amDUAGqRHxAmfrbsSTu4AjERkwA3kl_WzWa-5pXwEyBf2fDT-sSxdFM54BDcs1I-GCy7cu_Z4vb2htGD_SQTBPiPEHoP7ihIAi10Ew1DbfhSKMYWILWNxcSKvnGYb0TXmovqzXuQxEJ26-Nutb7X54sFNSB_9J4RYr-8VppYSQ-Xl9Nnb6ZtQ1PFx9TWSnYHAKRg-CrYjsmQbBiHvaI-lWJjt7Pk50ZJLDhGV1jycXXYtK_m_wK0UdZDvXPJAnAChknlv63JPfEDgAIvI916AyoBTi-RDSj0IGNaDDhoi6384riBNijPMrCpaIC03gOOiAhTHJeUcH0yBRdtuyqqbbZdfg8oHyTE8MSJiHZ7acHuMEMBRl-wPEo4jwzHbu2EStYNBaEnZfhDroNiqeb0_tVgmY66oEAo9eA1b1h1T5WxX6JlAQS2JFzKv6MOggpG6B2mNYt4uQrGYi4vGMo8T3WS08zWMo1yBWiHm9nFZmnsjD5eCA4cR_W10G4h5jmejZTZu-J49YFfJH_R784xqQAU_Gv2SO7PTrl4cZjTFoJu-opx3kbP5HA0_d4ybf_LFUNtbeI8viPkLFfxPD_oqM-ejYFPo5T8ZUC8RKcr5dnTA-cEyLUhA1Pl4D6HV75wWLHb3x9Su-0SpihlHr3Ct9MRGY33x9jWqmX7A9tbakpirMJPRvKTCeV7TjHhL-UkzuX_vZwOpnBhdgdC5Pu_y9bNyunlkFu1rvOjVPEAoWEmrHzc6kjWrgHml-xqoilB-hFgMomwMy9sxZnQubwoq4Vlag7mywDp2rr-ZeR9QqakuV_bmyqO2WKo5fJUgPW1Tgc9vZhfP9RWBf07or0I7cy87GmtZdAVViau8clvc8B6Ic3-n3lSMJi__BBtNA5pNJA0SWGAr0MKQhNn-Gi9SD47IuUsyALE9-nMuezYXlrzxY_duosbhzF8YwN8Y1Ph99cZtwbYzls3IOLQBAkzGuLUdZSE2npnANZbKf0gXyxl2ZZRGP1d29ye6NBtSAlgGZpv9KeQwGWkkSqY-sISxOzaZ5czry5ZEmUpW_m9uQGm0nzEH95ILMrYu0idLfDG3-JTEBnjOKX_ZLr9qKjEO_GQNXBKlrS_-nOc8yp-oOD0sT0Y23SBS1eyM-8E_8vIls26Iekiw"
+# --- CONFIGURAÇÃO DO DROPBOX (CONEXÃO PERMANENTE VIA REFRESH TOKEN) ---
+DROPBOX_APP_KEY = "migrgmon6nslb6d"
+DROPBOX_APP_SECRET = "3etd7wqrqmnq8lc"
+DROPBOX_REFRESH_TOKEN = "sl.u.AGzJPNBT_oYlNaH0IlVlpTvGPNaXtguSOvhxorChvBejMnS0n2_e0iQySA6PYGQkWbAMSddY95vA430H3YORPvIgxZR3yM1kt1Rrqp6WiREOnfKDX7_GNyCvOUHPM9E9DNVonJEXfvm5z92P_yB1C5WOo9w2EL6UmHXbZe-PNTeO5Uf6ONXyFKPHZxxKFmWZ7mP7lXIQOqPcy03_h2UszYVjGsSTQoijPIPSpElF0RobiIWyFsWU80BdoIzUuHCm2kv5njGO8sNo9e8zMV0J_o9bZzOJ2xK9w8BrppDb-EjP5fG6x5ikEYnv6MKqwifHyLfn8AnT_r-KEATNW2II9rajGp08Wnvz7OMsUUFL6qyK9j63_veE4ccr_NYazhhxbAXjy4BaH--AhwHrdjGmPRJmCftnMBXrQl7-IhthxF29XtjQ7OPseyHvWEKmXDHto_-kxyEf9_6naZ9YVHe5vQ3FSpQ528gXguu-aA6RUIdCuodN6sKJ3nNHl8TXhkRuaE_xp81wGoYBn88D7bkJoslhF89YvQZw7Opr4cmi0aG83B3LI4IRB_yGYrpeIwgKE5AJBaXySfbgnocFc5DPaULdFTddt-ZozilqMMwaDw9VAFO3LrTg-QDYrxvjnEFeIUbZ-UewvspggNUHrSTbQjitUuD1B69ww9V0OO3_-JEnutUtVaPFpac9iM_A0ztep0fCIHZ9ko6bwsbDInlri0qG5s4nCMlpnSUDqdXulZarZDwhOwRh1SP2qslVhAplHQRMmGi2pHUjikPY92_FO5bKEx2GM3dqWkpmM8eYDrZiWP7cSV1Ni25f_tpXyElihub9_LBaIqok1m_iP9QAnOLfwnRPJBdO2IhMXB9QMyGGNbRXOH59N-CPm1J96h3tvh77pj5krnJ01uexfSqxDnaInYmndvmjD4sHdUtVoZRL4f_27yvBw9oKfW1jG3Zw3OyOx7GbTnUIp7VDme_P-43IbXKAjjINLIcVyWL_hsV2ibPCSLrgITmAvLNi_XQdQw4VtTSz4_Ca-Kc9bqUMPfnQecmyIRzKDwlXihbntKdGLHBExJNQBwobLBDDuX-_w8v3zy0-_fmU3Isz3NMTDddgPTXfpXZMArgFuqdvKCtK5HdaVCOWiJlmJmsOg_dHvoqDIUsLqgfqK0mIKzjvzRW94nPfwHlQOux0oo8OgdQcd21youEkqeXMVFU-x5-WYXlGB_i9kFy1qHNcWi4bsyrutSbeF6qSt_fh9bP0lgqOVfcRzqGhvBUkClKRnzcnGt05xVo17zQw1Zhu4rNfPl7qiTL26snG6rRsJG4_eST83sEaSjPmgA8NHQ8OCbXjTN1f4c7Nr6Di09q5wGjc5eroHqWfieFdoTvG_WDWL1BtqtSuoH2uOBwLmO631QYNQIeE7fP2vAvbYYcMcCQ8-NgFrFlT500dF10XX4-GdYcYmw"
 DROPBOX_FILE_PATH = "/historico_mercadinho.db"
+
+def obter_conexao_dropbox():
+    """Cria uma instância autenticada do Dropbox que renova o acesso automaticamente."""
+    return dropbox.Dropbox(
+        app_key=DROPBOX_APP_KEY,
+        app_secret=DROPBOX_APP_SECRET,
+        oauth2_refresh_token=DROPBOX_REFRESH_TOKEN
+    )
 
 def carregar_db_do_dropbox(mostrar_aviso=False):
     try:
-        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+        dbx = obter_conexao_dropbox()
         metadata, response = dbx.files_download(path=DROPBOX_FILE_PATH)
         with open(DB_PATH, "wb") as f:
             f.write(response.content)
@@ -34,7 +44,7 @@ def carregar_db_do_dropbox(mostrar_aviso=False):
 
 def salvar_db_no_dropbox():
     try:
-        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+        dbx = obter_conexao_dropbox()
         with open(DB_PATH, "rb") as f:
             dbx.files_upload(f.read(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
         return True
