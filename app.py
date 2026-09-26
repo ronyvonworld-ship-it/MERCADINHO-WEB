@@ -279,7 +279,7 @@ with aba_lancamentos:
     
     cor_lucro = "#2e7d32" if lucro_dia >= 0 else "#c62828"
     m3.markdown(f"**💡 Lucro do Dia**<h3 style='color: {cor_lucro}; margin-top:0;'>R$ {lucro_dia:.2f}</h3>", unsafe_allow_html=True)
-    m4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_dia:g}%</h3>", unsafe_allow_html=True)
+    m4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_dia:.2f}%</h3>", unsafe_allow_html=True)
     m5.markdown(f"**⚖️ Soma Diferenças**<h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_dia:.2f}</h3>", unsafe_allow_html=True)
 
     st.divider()
@@ -324,15 +324,17 @@ with aba_lancamentos:
                     if p_val > 0:
                         dif = val_compra / p_val
                         dif_str = f"{dif:.2f}"
+                        perc_str = f"{p_val:.2f}%"
                     else:
                         dif_str = "0.00"
+                        perc_str = "0.00%"
                     
                     item = {
                         "data": dt_compra.strftime("%d/%m/%Y"),
                         "tipo": "COMPRA",
                         "produto": "Compra Avulsa",
                         "valor_total": val_compra,
-                        "porcentagem": f"{p_val:g}%",
+                        "porcentagem": perc_str,
                         "diferenca": dif_str
                     }
                     salvar_transacao(item)
@@ -406,7 +408,7 @@ with aba_despesas:
         df_exibir_desp = df_desp_filtrado.drop(columns=["dt_parsed"])
 
         if not df_exibir_desp.empty:
-            st.dataframe(df_exibir_desp, use_container_width=True)
+            st.dataframe(df_exibir_desp.style.format({'valor': 'R$ {:.2f}'}), use_container_width=True)
             tot_d_exibido = df_exibir_desp['valor'].sum()
             st.markdown(f"**Total Exibido em Despesas:** <span style='color: #c62828; font-size: 1.3em; font-weight: bold;'>R$ {tot_d_exibido:.2f}</span>", unsafe_allow_html=True)
         else:
@@ -495,6 +497,24 @@ with aba_balanco:
         if tipo_filtro != "TODOS":
             df_exibir = df_exibir[df_exibir["tipo"] == tipo_filtro]
 
+        # Formata a coluna porcentagem e diferenca na tabela para 2 casas decimais
+        def formatar_porcentagem_linha(val):
+            try:
+                clean_v = float(str(val).replace('%', '').strip())
+                return f"{clean_v:.2f}%"
+            except:
+                return str(val)
+
+        def formatar_diferenca_linha(val):
+            try:
+                clean_v = float(str(val).strip())
+                return f"{clean_v:.2f}"
+            except:
+                return str(val)
+
+        df_exibir["porcentagem"] = df_exibir["porcentagem"].apply(formatar_porcentagem_linha)
+        df_exibir["diferenca"] = df_exibir["diferenca"].apply(formatar_diferenca_linha)
+
         df_exibir_display = df_exibir.drop(columns=["dt_parsed"])
 
         def estilar_linhas(row):
@@ -504,7 +524,12 @@ with aba_balanco:
                 return ['background-color: #f8d7da; color: #721c24; font-weight: bold;'] * len(row)
             return [''] * len(row)
 
-        st.dataframe(df_exibir_display.style.apply(estilar_linhas, axis=1), use_container_width=True)
+        st.dataframe(
+            df_exibir_display.style
+            .apply(estilar_linhas, axis=1)
+            .format({'valor_total': 'R$ {:.2f}'}),
+            use_container_width=True
+        )
 
         tot_vendas = df_hist_filtrado[df_hist_filtrado["tipo"] == "VENDA"]["valor_total"].sum()
         tot_compras = df_hist_filtrado[df_hist_filtrado["tipo"] == "COMPRA"]["valor_total"].sum()
@@ -538,7 +563,7 @@ with aba_balanco:
         
         cor_lb = "#2e7d32" if lucro_bruto >= 0 else "#c62828"
         c3.markdown(f"**Lucro Bruto**<h3 style='color: {cor_lb}; margin-top:0;'>R$ {lucro_bruto:.2f}</h3>", unsafe_allow_html=True)
-        c4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_tot:g}%</h3>", unsafe_allow_html=True)
+        c4.markdown(f"**📊 Soma Porcentagens**<h3 style='color: #1565c0; margin-top:0;'>{soma_porcentagem_tot:.2f}%</h3>", unsafe_allow_html=True)
         c5.markdown(f"**⚖️ Soma Diferenças**<h3 style='color: #ef6c00; margin-top:0;'>R$ {soma_diferenca_tot:.2f}</h3>", unsafe_allow_html=True)
 
         cor_bc = "#2e7d32" if balanco_corrigido >= 0 else "#c62828"
@@ -595,7 +620,7 @@ with aba_balanco:
             if btn_salvar_hist:
                 dt_str_nova = nova_dt_h.strftime("%d/%m/%Y")
                 if is_compra:
-                    perc_str_nova = f"{nova_perc_h:g}%"
+                    perc_str_nova = f"{nova_perc_h:.2f}%"
                     dif_nova = f"{(novo_val_h / nova_perc_h):.2f}" if nova_perc_h > 0 else "0.00"
                 else:
                     perc_str_nova = "-"
