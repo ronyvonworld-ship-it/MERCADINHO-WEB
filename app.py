@@ -19,15 +19,17 @@ DB_PATH = "historico_mercadinho.db"
 DROPBOX_TOKEN = "sl.u.AGxUKmF13Svtu1X4Zo3uUpq1hAx_AF9fj8mTmJP77ixA2H1jL8qf80FyqqBVWR6ePcdPzsLuh6bVvnh0Td0sQiqaXHGRqHOhsBZAHvDjz5O35cD0Dj55GLvJ35aKvWfH_rLVlCD9TtbqLmzhT5bD1yA52rDbw1MC6UJ9IxOZCXdoGhLo_oOaTTW0ZQCTPLAKnlXxXVL2BpKmma9mJpV-TgfRw-w8jeCb48kdguJKIaLnFmh003AenmmNW9aSLQzNVLGWuGtx78dHvlLx53P95H-I0hUFfHnmW_RJ2amDUAGqRHxAmfrbsSTu4AjERkwA3kl_WzWa-5pXwEyBf2fDT-sSxdFM54BDcs1I-GCy7cu_Z4vb2htGD_SQTBPiPEHoP7ihIAi10Ew1DbfhSKMYWILWNxcSKvnGYb0TXmovqzXuQxEJ26-Nutb7X54sFNSB_9J4RYr-8VppYSQ-Xl9Nnb6ZtQ1PFx9TWSnYHAKRg-CrYjsmQbBiHvaI-lWJjt7Pk50ZJLDhGV1jycXXYtK_m_wK0UdZDvXPJAnAChknlv63JPfEDgAIvI916AyoBTi-RDSj0IGNaDDhoi6384riBNijPMrCpaIC03gOOiAhTHJeUcH0yBRdtuyqqbbZdfg8oHyTE8MSJiHZ7acHuMEMBRl-wPEo4jwzHbu2EStYNBaEnZfhDroNiqeb0_tVgmY66oEAo9eA1b1h1T5WxX6JlAQS2JFzKv6MOggpG6B2mNYt4uQrGYi4vGMo8T3WS08zWMo1yBWiHm9nFZmnsjD5eCA4cR_W10G4h5jmejZTZu-J49YFfJH_R784xqQAU_Gv2SO7PTrl4cZjTFoJu-opx3kbP5HA0_d4ybf_LFUNtbeI8viPkLFfxPD_oqM-ejYFPo5T8ZUC8RKcr5dnTA-cEyLUhA1Pl4D6HV75wWLHb3x9Su-0SpihlHr3Ct9MRGY33x9jWqmX7A9tbakpirMJPRvKTCeV7TjHhL-UkzuX_vZwOpnBhdgdC5Pu_y9bNyunlkFu1rvOjVPEAoWEmrHzc6kjWrgHml-xqoilB-hFgMomwMy9sxZnQubwoq4Vlag7mywDp2rr-ZeR9QqakuV_bmyqO2WKo5fJUgPW1Tgc9vZhfP9RWBf07or0I7cy87GmtZdAVViau8clvc8B6Ic3-n3lSMJi__BBtNA5pNJA0SWGAr0MKQhNn-Gi9SD47IuUsyALE9-nMuezYXlrzxY_duosbhzF8YwN8Y1Ph99cZtwbYzls3IOLQBAkzGuLUdZSE2npnANZbKf0gXyxl2ZZRGP1d29ye6NBtSAlgGZpv9KeQwGWkkSqY-sISxOzaZ5czry5ZEmUpW_m9uQGm0nzEH95ILMrYu0idLfDG3-JTEBnjOKX_ZLr9qKjEO_GQNXBKlrS_-nOc8yp-oOD0sT0Y23SBS1eyM-8E_8vIls26Iekiw"
 DROPBOX_FILE_PATH = "/historico_mercadinho.db"
 
-def carregar_db_do_dropbox():
+def carregar_db_do_dropbox(mostrar_aviso=False):
     try:
         dbx = dropbox.Dropbox(DROPBOX_TOKEN)
         metadata, response = dbx.files_download(path=DROPBOX_FILE_PATH)
         with open(DB_PATH, "wb") as f:
             f.write(response.content)
+        if mostrar_aviso:
+            st.success("✅ Banco de dados baixado com sucesso do Dropbox!")
         return True
     except Exception as e:
-        print(f"Aviso: Não foi possível carregar o banco de dados do Dropbox: {e}")
+        st.error(f"🚨 Erro ao baixar arquivo do Dropbox: {e}")
         return False
 
 def salvar_db_no_dropbox():
@@ -37,7 +39,7 @@ def salvar_db_no_dropbox():
             dbx.files_upload(f.read(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
         return True
     except Exception as e:
-        print(f"Erro ao enviar banco de dados para o Dropbox: {e}")
+        st.error(f"🚨 Erro ao enviar dados para o Dropbox: {e}")
         return False
 
 # Carrega a versão mais recente do Dropbox na inicialização
@@ -367,7 +369,6 @@ with aba_despesas:
 
     if not df_todas_desp.empty:
         df_todas_desp["dt_parsed"] = pd.to_datetime(df_todas_desp["data"], format="%d/%m/%Y", errors="coerce")
-        # Ordenação por data cadastrada (mais antigo em cima)
         df_todas_desp = df_todas_desp.sort_values(by="dt_parsed", ascending=True)
 
         anos_disponiveis_d = sorted(df_todas_desp["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
@@ -448,8 +449,6 @@ with aba_balanco:
         df_hist["dt_parsed"] = pd.to_datetime(df_hist["data"], format="%d/%m/%Y", errors="coerce")
         df_desp_balanco["dt_parsed"] = pd.to_datetime(df_desp_balanco["data"], format="%d/%m/%Y", errors="coerce")
 
-        # Ordenação REAL pela data cadastrada (coluna 'data' da esquerda)
-        # Mais antigo no topo, mais recente embaixo (utilizando 'id' como desempate)
         df_hist = df_hist.sort_values(by=["dt_parsed", "id"], ascending=[True, True])
 
         anos_disponiveis = sorted(df_hist["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
@@ -488,7 +487,6 @@ with aba_balanco:
 
         df_exibir_display = df_exibir.drop(columns=["dt_parsed"])
 
-        # Função para destacar com cores as linhas da tabela
         def estilar_linhas(row):
             if row["tipo"] == "VENDA":
                 return ['background-color: #d4edda; color: #155724; font-weight: bold;'] * len(row)
@@ -600,7 +598,7 @@ with aba_balanco:
             if btn_deletar_hist:
                 modal_confirmar_deletar_transacao(id_hist_sel, dados_hist_item['tipo'], float(dados_hist_item['valor_total']))
         else:
-            st.info("Nenum lançamento encontrado para os filtros selecionados.")
+            st.info("Nenhum lançamento encontrado para os filtros selecionados.")
             
     else:
         st.info("Nenhum lançamento encontrado.")
@@ -703,12 +701,27 @@ with aba_resumo:
 # --- ABA 6: BACKUP E RESTAURAÇÃO ---
 with aba_backup:
     st.header("💾 Backup e Restauração do Banco de Dados")
-    st.write("Faça o download do seu banco de dados regularmente para manter uma cópia de segurança local.")
     
+    col_cloud1, col_cloud2 = st.columns(2)
+    
+    with col_cloud1:
+        st.subheader("☁️ Sincronização com o Dropbox")
+        if st.button("🔄 Baixar Backup Atualizado do Dropbox Agora", type="primary", use_container_width=True):
+            if carregar_db_do_dropbox(mostrar_aviso=True):
+                st.rerun()
+
+    with col_cloud2:
+        st.subheader("📤 Enviar Estado Atual para a Nuvem")
+        if st.button("☁️ Forçar Upload do Banco para o Dropbox", use_container_width=True):
+            if salvar_db_no_dropbox():
+                st.success("✅ Arquivo enviado com sucesso para o Dropbox!")
+
+    st.divider()
+
     col_b1, col_b2 = st.columns(2)
     
     with col_b1:
-        st.subheader("📥 Baixar Cópia de Segurança")
+        st.subheader("📥 Baixar Cópia de Segurança Local")
         try:
             with open(DB_PATH, "rb") as file:
                 st.download_button(
@@ -716,13 +729,13 @@ with aba_backup:
                     data=file,
                     file_name=f"backup_mercadinho_{datetime.now().strftime('%Y_%m_%d')}.db",
                     mime="application/x-sqlite3",
-                    type="primary"
+                    type="secondary"
                 )
         except FileNotFoundError:
             st.error("Arquivo de banco de dados ainda não foi criado.")
 
     with col_b2:
-        st.subheader("📤 Restaurar Banco de Dados")
+        st.subheader("📤 Restaurar Banco de Dados Manualmente")
         uploaded_file = st.file_uploader("Envie um arquivo .db de backup antigo", type=["db"])
         
         if uploaded_file is not None:
