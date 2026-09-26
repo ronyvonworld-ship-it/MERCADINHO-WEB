@@ -437,7 +437,8 @@ with aba_balanco:
     st.header("📊 Balanço Geral de Lançamentos")
     
     conn = sqlite3.connect(DB_PATH)
-    df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico ORDER BY id DESC", conn)
+    # Ordenado por id ASC para garantir que o mais antigo fique no topo e o mais recente no final
+    df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico ORDER BY id ASC", conn)
     df_desp_balanco = pd.read_sql_query("SELECT data, valor FROM despesas", conn)
     conn.close()
 
@@ -480,7 +481,16 @@ with aba_balanco:
             df_exibir = df_exibir[df_exibir["tipo"] == tipo_filtro]
 
         df_exibir_display = df_exibir.drop(columns=["dt_parsed"])
-        st.dataframe(df_exibir_display, use_container_width=True)
+
+        # Função para destacar com cores as linhas da tabela
+        def estilar_linhas(row):
+            if row["tipo"] == "VENDA":
+                return ['background-color: #d4edda; color: #155724; font-weight: bold;'] * len(row)
+            elif row["tipo"] == "COMPRA":
+                return ['background-color: #f8d7da; color: #721c24; font-weight: bold;'] * len(row)
+            return [''] * len(row)
+
+        st.dataframe(df_exibir_display.style.apply(estilar_linhas, axis=1), use_container_width=True)
 
         tot_vendas = df_hist_filtrado[df_hist_filtrado["tipo"] == "VENDA"]["valor_total"].sum()
         tot_compras = df_hist_filtrado[df_hist_filtrado["tipo"] == "COMPRA"]["valor_total"].sum()
