@@ -18,7 +18,7 @@ DB_PATH = "historico_mercadinho.db"
 # --- CONFIGURAÇÃO DO DROPBOX (CONEXÃO PERMANENTE VIA REFRESH TOKEN) ---
 DROPBOX_APP_KEY = "q0viamdueua22be"
 DROPBOX_APP_SECRET = "mz2eaymu9r0jrop"
-DROPBOX_REFRESH_TOKEN = " VHxefblYYMcAAAAAAAAAAXo_fNemEsw_A-sP0lEh3C2YB2kphW9rTfdB6d_sTe5B"
+DROPBOX_REFRESH_TOKEN = "VHxefblYYMcAAAAAAAAAAXo_fNemEsw_A-sP0lEh3C2YB2kphW9rTfdB6d_sTe5B"
 DROPBOX_FILE_PATH = "/historico_mercadinho.db"
 
 def obter_conexao_dropbox():
