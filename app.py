@@ -356,7 +356,7 @@ with aba_despesas:
     st.subheader("Histórico de Despesas")
     
     conn = sqlite3.connect(DB_PATH)
-    df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas ORDER BY id DESC", conn)
+    df_todas_desp = pd.read_sql_query("SELECT id, data, descricao, valor, data_registro FROM despesas", conn)
     conn.close()
 
     meses_dict_desp = {
@@ -367,6 +367,9 @@ with aba_despesas:
 
     if not df_todas_desp.empty:
         df_todas_desp["dt_parsed"] = pd.to_datetime(df_todas_desp["data"], format="%d/%m/%Y", errors="coerce")
+        # Ordenação por data cadastrada (mais antigo em cima)
+        df_todas_desp = df_todas_desp.sort_values(by="dt_parsed", ascending=True)
+
         anos_disponiveis_d = sorted(df_todas_desp["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
         anos_opcoes_d = ["Todos os Anos"] + [str(a) for a in anos_disponiveis_d]
 
@@ -437,14 +440,17 @@ with aba_balanco:
     st.header("📊 Balanço Geral de Lançamentos")
     
     conn = sqlite3.connect(DB_PATH)
-    # Ordenado por id ASC para garantir que o mais antigo fique no topo e o mais recente no final
-    df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico ORDER BY id ASC", conn)
+    df_hist = pd.read_sql_query("SELECT id, data, tipo, produto, valor_total, porcentagem, diferenca, data_exportacao FROM historico", conn)
     df_desp_balanco = pd.read_sql_query("SELECT data, valor FROM despesas", conn)
     conn.close()
 
     if not df_hist.empty:
         df_hist["dt_parsed"] = pd.to_datetime(df_hist["data"], format="%d/%m/%Y", errors="coerce")
         df_desp_balanco["dt_parsed"] = pd.to_datetime(df_desp_balanco["data"], format="%d/%m/%Y", errors="coerce")
+
+        # Ordenação REAL pela data cadastrada (coluna 'data' da esquerda)
+        # Mais antigo no topo, mais recente embaixo (utilizando 'id' como desempate)
+        df_hist = df_hist.sort_values(by=["dt_parsed", "id"], ascending=[True, True])
 
         anos_disponiveis = sorted(df_hist["dt_parsed"].dt.year.dropna().astype(int).unique(), reverse=True)
         anos_opcoes = ["Todos os Anos"] + [str(a) for a in anos_disponiveis]
@@ -594,7 +600,7 @@ with aba_balanco:
             if btn_deletar_hist:
                 modal_confirmar_deletar_transacao(id_hist_sel, dados_hist_item['tipo'], float(dados_hist_item['valor_total']))
         else:
-            st.info("Nenhum lançamento encontrado para os filtros selecionados.")
+            st.info("Nenum lançamento encontrado para os filtros selecionados.")
             
     else:
         st.info("Nenhum lançamento encontrado.")
